@@ -6,7 +6,7 @@ version := "0.1.0-SNAPSHOT"
 scalaVersion := "2.13.8"
 
 import Dependencies._
-libraryDependencies ++= logging.all ++ cats.all ++ circe.all ++ http4s.all ++ Vector(fs2Io)
+libraryDependencies ++= logging.all ++ cats.all ++ circe.all ++ http4s.all ++ scalaTest.all.map(_ % Test) ++ Vector(fs2Io)
 
 scalacOptions ++= Seq(
   "-target:jvm-1.8",
