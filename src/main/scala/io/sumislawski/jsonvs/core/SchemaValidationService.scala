@@ -1,7 +1,6 @@
 package io.sumislawski.jsonvs.core
 
 import cats.{Applicative, Monad}
-import io.sumislawski.jsonvs.core.SchemaStorage.{Schema, SchemaId}
 
 // We might want to split it into two services (one for managing the known schemas, and one for running the validation) if it grows significantly
 class SchemaValidationService[F[_] : Monad](storage: SchemaStorage[F]) {
