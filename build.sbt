@@ -14,7 +14,7 @@ scalacOptions ++= Seq(
   "-unchecked",
   "-deprecation",
   "-Ywarn-unused",
-  "-Xfatal-warnings",
+//  "-Xfatal-warnings",
   "-language:higherKinds"
 )
 
