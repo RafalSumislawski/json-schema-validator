@@ -20,7 +20,8 @@ object Dependencies{
     val circeVersion = "0.14.2"
     val circeGeneric = "io.circe" %% "circe-generic" % circeVersion
     val circeParser = "io.circe" %% "circe-parser" % circeVersion
-    val all = Vector(circeGeneric, circeParser)
+    val circeLiteral = "io.circe" %% "circe-literal" % circeVersion
+    val all = Vector(circeGeneric, circeParser, circeLiteral)
   }
 
   object http4s {
