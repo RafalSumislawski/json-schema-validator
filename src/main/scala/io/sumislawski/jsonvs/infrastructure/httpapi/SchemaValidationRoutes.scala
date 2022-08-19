@@ -1,32 +1,35 @@
 package io.sumislawski.jsonvs.infrastructure.httpapi
 
-import cats.effect.{Async, IO}
+import cats.effect.Async
 import cats.syntax.all._
 import io.circe.generic.extras.semiauto.deriveUnwrappedEncoder
 import io.circe.generic.semiauto._
 import io.circe.literal._
-import io.circe.{Encoder, Json}
+import io.circe.{Encoder, Json, Printer}
 import io.sumislawski.jsonvs.core.{Schema, SchemaId, SchemaValidationService}
 import io.sumislawski.jsonvs.infrastructure.httpapi.SchemaValidationRoutes.{Status, StatusResponse}
-import org.http4s.{HttpRoutes, MalformedMessageBodyFailure}
-import org.http4s.circe.CirceEntityCodec.circeEntityEncoder
-import org.http4s.circe._
 import org.http4s.dsl.Http4sDsl
+import org.http4s.{EntityEncoder, HttpRoutes, MalformedMessageBodyFailure}
 import org.typelevel.log4cats.slf4j.Slf4jLogger
 
 class SchemaValidationRoutes[F[_] : Async](service: SchemaValidationService[F]) extends Http4sDsl[F] {
 
-  private val logger = Slf4jLogger.getLogger[IO]
+  private val logger = Slf4jLogger.getLogger[F]
+
+  private implicit def jsonEncoderWithoutNullsOf[A: Encoder]: EntityEncoder[F, A] =
+    org.http4s.circe.jsonEncoderWithPrinterOf[F, A](Printer.spaces2.copy(dropNullValues = true))
+
+  import org.http4s.circe.jsonDecoder
 
   def routes: HttpRoutes[F] = HttpRoutes.of {
     case r@POST -> Root / "schema" / SchemaIdVar(id) =>
       r.as[Json]
         .flatMap(jsonBody => service.createSchema(id, Schema(jsonBody)))
         .attempt
-        .flatMap{
+        .flatMap {
           case Right(_) => Created(StatusResponse("uploadSchema", id, Status.Success))
           case Left(_: MalformedMessageBodyFailure) => BadRequest(StatusResponse("uploadSchema", id, Status.Error, Some("Invalid JSON")))
-//          case Left(t: Something) => Conflict(StatusResponse("uploadSchema", id, Status.Error, Some("Schema with this ID already exists")))// TODO
+          //          case Left(t: Something) => Conflict(StatusResponse("uploadSchema", id, Status.Error, Some("Schema with this ID already exists")))// TODO
           case Left(t) => InternalServerError(StatusResponse("uploadSchema", id, Status.Error, Some(t.getMessage)))
         }
 
