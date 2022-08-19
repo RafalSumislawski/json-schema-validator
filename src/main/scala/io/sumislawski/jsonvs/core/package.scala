@@ -4,8 +4,21 @@ import io.circe.Json
 
 package object core {
 
-  case class SchemaId(id: String) extends AnyVal
+  case class SchemaId private(id: String) extends AnyVal {
+    override def toString: String = id
+  }
 
-  case class Schema(json: Json)
+  object SchemaId {
+    private val regex = raw"[a-zA-Z_0-9\-]+".r
+
+    def apply(s: String): Either[IllegalArgumentException, SchemaId] =
+      if (regex.matches(s)) Right(new SchemaId(s))
+      else Left(new IllegalArgumentException(s"SchemaId [$s] contains illegal characters."))
+
+  }
+
+  case class Schema(json: Json) {
+    override def toString: String = json.toString()
+  }
 
 }

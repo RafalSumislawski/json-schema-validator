@@ -2,10 +2,10 @@ package io.sumislawski.jsonvs.infrastructure.httpapi
 
 import cats.effect.Async
 import cats.syntax.all._
-import io.circe.generic.extras.semiauto.deriveUnwrappedEncoder
 import io.circe.generic.semiauto._
 import io.circe.literal._
 import io.circe.{Encoder, Json, Printer}
+import io.sumislawski.jsonvs.core.SchemaStorage.SchemaAlreadyExists
 import io.sumislawski.jsonvs.core.{Schema, SchemaId, SchemaValidationService}
 import io.sumislawski.jsonvs.infrastructure.httpapi.SchemaValidationRoutes.{Status, StatusResponse}
 import org.http4s.dsl.Http4sDsl
@@ -22,25 +22,27 @@ class SchemaValidationRoutes[F[_] : Async](service: SchemaValidationService[F]) 
   import org.http4s.circe.jsonDecoder
 
   def routes: HttpRoutes[F] = HttpRoutes.of {
-    case r@POST -> Root / "schema" / SchemaIdVar(id) =>
-      r.as[Json]
-        .flatMap(jsonBody => service.createSchema(id, Schema(jsonBody)))
-        .attempt
-        .flatMap {
-          case Right(_) => Created(StatusResponse("uploadSchema", id, Status.Success))
-          case Left(_: MalformedMessageBodyFailure) => BadRequest(StatusResponse("uploadSchema", id, Status.Error, Some("Invalid JSON")))
-          //          case Left(t: Something) => Conflict(StatusResponse("uploadSchema", id, Status.Error, Some("Schema with this ID already exists")))// TODO
-          case Left(t) => InternalServerError(StatusResponse("uploadSchema", id, Status.Error, Some(t.getMessage)))
-        }
+    case r@POST -> Root / "schema" / schemaId =>
+      SchemaId(schemaId).liftTo[F].flatMap { id =>
+        r.as[Json]
+          .flatMap(jsonBody => service.createSchema(id, Schema(jsonBody)))
+          .attempt
+          .flatMap {
+            case Right(_) => Created(StatusResponse("uploadSchema", id, Status.Success))
+            case Left(_: MalformedMessageBodyFailure) => BadRequest(StatusResponse("uploadSchema", id, Status.Error, Some("Invalid JSON")))
+            case Left(t: SchemaAlreadyExists) => Conflict(StatusResponse("uploadSchema", id, Status.Error, Some(t.getMessage)))
+            case Left(t) => InternalServerError(StatusResponse("uploadSchema", id, Status.Error, Some(t.getMessage)))
+          }
+      }
 
     case GET -> Root / "schema" / schemaId =>
-      Ok()
+      SchemaId(schemaId).liftTo[F].flatMap { id =>
+        Ok()
+      }
     case r@POST -> Root / "validate" / schemaId =>
-      Ok(json"""{"action": "validateDocument", "id": "config-schema", "status": "success"}""")
-  }
-
-  object SchemaIdVar {
-    def unapply(str: String): Option[SchemaId] = Some(SchemaId(str))
+      SchemaId(schemaId).liftTo[F].flatMap { id =>
+        Ok(json"""{"action": "validateDocument", "id": "config-schema", "status": "success"}""")
+      }
   }
 
 }
@@ -60,5 +62,5 @@ object SchemaValidationRoutes {
 
   implicit lazy val statusEncoder: Encoder[Status] = Encoder.encodeString.contramap[Status](_.toString.toLowerCase)
 
-  implicit lazy val schemaIdEncoder: Encoder[SchemaId] = deriveUnwrappedEncoder
+  implicit lazy val schemaIdEncoder: Encoder[SchemaId] = Encoder.encodeString.contramap[SchemaId](_.toString)
 }

@@ -3,6 +3,7 @@ package io.sumislawski.jsonvs
 import cats.effect.testing.scalatest.AsyncIOSpec
 import cats.effect.{IO, Resource}
 import cats.syntax.all._
+import fs2.io.file.Files
 import io.circe._
 import io.circe.literal._
 import io.circe.parser._
@@ -19,10 +20,9 @@ import org.scalatest.matchers.should.Matchers
 class JsonSchemaValidationServiceSpec extends AsyncFunSuite with AsyncIOSpec with Matchers {
 
   private def jsonSchemaValidationService(): Resource[IO, HttpApp[IO]] =
-    Resource.pure[IO, HttpApp[IO]](
-      new SchemaValidationRoutes[IO](new SchemaValidationService(new LocalFileSystemSchemaStorage[IO]()))
-        .routes.orNotFound
-    )
+    Files[IO].tempDirectory
+      .flatMap(storageDirectory => Resource.eval(LocalFileSystemSchemaStorage[IO](storageDirectory)))
+      .map(storage => new SchemaValidationRoutes[IO](new SchemaValidationService(storage)).routes.orNotFound)
 
   test("Responding to a request to upload a schema") {
     jsonSchemaValidationService().use { jsvs =>
@@ -52,7 +52,8 @@ class JsonSchemaValidationServiceSpec extends AsyncFunSuite with AsyncIOSpec wit
         response1 <- jsvs.run(Request(method = POST, uri = uri"/schema" / schemaName).withEntity(TestData.configSchema))
         response2 <- jsvs.run(Request(method = POST, uri = uri"/schema" / schemaName).withEntity(TestData.configSchema))
         _ = response2.status shouldEqual Conflict
-        _ <- response2.as[Json].asserting(_ shouldEqual json"""{"action": "uploadSchema", "id": $schemaName, "status": "error", "message": "Schema with this ID already exists"}""")
+        expectedMessage = s"Schema [$schemaName] already exists."
+        _ <- response2.as[Json].asserting(_ shouldEqual json"""{"action": "uploadSchema", "id": $schemaName, "status": "error", "message": $expectedMessage}""")
       } yield ()
     }
   }
