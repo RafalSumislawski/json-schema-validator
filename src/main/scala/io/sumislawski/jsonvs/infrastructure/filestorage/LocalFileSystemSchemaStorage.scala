@@ -3,8 +3,8 @@ package io.sumislawski.jsonvs.infrastructure.filestorage
 import cats.effect.std.Semaphore
 import cats.effect.{Async, Sync}
 import cats.syntax.all._
-import fs2.io.file.{Files, Path}
-import io.sumislawski.jsonvs.core.SchemaStorage.SchemaAlreadyExists
+import fs2.io.file.{Files, NoSuchFileException, Path}
+import io.sumislawski.jsonvs.core.SchemaStorage.{SchemaAlreadyExists, SchemaNotFound}
 import io.sumislawski.jsonvs.core.{Schema, SchemaId, SchemaStorage}
 import org.typelevel.log4cats.slf4j.Slf4jLogger
 
@@ -20,6 +20,7 @@ class LocalFileSystemSchemaStorage[F[_] : Sync : Files] private(semaphore: Semap
         .compile.foldMonoid
         .flatMap(s => io.circe.parser.parse(s).liftTo[F])
         .map(json => Schema(json))
+        .adaptError { case t: NoSuchFileException => new SchemaNotFound(id) }
     }
 
   override def createSchema(id: SchemaId, schema: Schema): F[Unit] =

@@ -5,7 +5,7 @@ import cats.syntax.all._
 import io.circe.generic.semiauto._
 import io.circe.literal._
 import io.circe.{Encoder, Json, Printer}
-import io.sumislawski.jsonvs.core.SchemaStorage.SchemaAlreadyExists
+import io.sumislawski.jsonvs.core.SchemaStorage.{SchemaAlreadyExists, SchemaNotFound}
 import io.sumislawski.jsonvs.core.{Schema, SchemaId, SchemaValidationService}
 import io.sumislawski.jsonvs.infrastructure.httpapi.SchemaValidationRoutes.{Status, StatusResponse}
 import org.http4s.dsl.Http4sDsl
@@ -31,14 +31,21 @@ class SchemaValidationRoutes[F[_] : Async](service: SchemaValidationService[F]) 
             case Right(_) => Created(StatusResponse("uploadSchema", id, Status.Success))
             case Left(_: MalformedMessageBodyFailure) => BadRequest(StatusResponse("uploadSchema", id, Status.Error, Some("Invalid JSON")))
             case Left(t: SchemaAlreadyExists) => Conflict(StatusResponse("uploadSchema", id, Status.Error, Some(t.getMessage)))
-            case Left(t) => InternalServerError(StatusResponse("uploadSchema", id, Status.Error, Some(t.getMessage)))
+            case Left(t) => InternalServerError(StatusResponse("uploadSchema", id, Status.Error, Some("Failed to process the request"))) // TODO log
           }
       }
 
     case GET -> Root / "schema" / schemaId =>
       SchemaId(schemaId).liftTo[F].flatMap { id =>
-        Ok()
+        service.getSchema(id)
+          .attempt
+          .flatMap {
+            case Right(schema) => Ok(schema.json) // TODO consider defining encoder&decoder for Schema
+            case Left(t: SchemaNotFound) => NotFound(StatusResponse("downloadSchema", id, Status.Error, Some(t.getMessage)))
+            case Left(t) => InternalServerError(StatusResponse("downloadSchema", id, Status.Error, Some("Failed to process the request"))) // TODO log
+          }
       }
+
     case r@POST -> Root / "validate" / schemaId =>
       SchemaId(schemaId).liftTo[F].flatMap { id =>
         Ok(json"""{"action": "validateDocument", "id": "config-schema", "status": "success"}""")

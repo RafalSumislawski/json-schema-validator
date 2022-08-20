@@ -19,10 +19,13 @@ import org.scalatest.matchers.should.Matchers
 
 class JsonSchemaValidationServiceSpec extends AsyncFunSuite with AsyncIOSpec with Matchers {
 
-  private def jsonSchemaValidationService(): Resource[IO, HttpApp[IO]] =
-    Files[IO].tempDirectory
-      .flatMap(storageDirectory => Resource.eval(LocalFileSystemSchemaStorage[IO](storageDirectory)))
-      .map(storage => new SchemaValidationRoutes[IO](new SchemaValidationService(storage)).routes.orNotFound)
+  private def jsonSchemaValidationService(): Resource[IO, HttpApp[IO]] = for {
+    storageDirectory <- Files[IO].tempDirectory
+    storage <- Resource.eval(LocalFileSystemSchemaStorage[IO](storageDirectory))
+  } yield {
+    new SchemaValidationRoutes[IO](new SchemaValidationService(storage))
+      .routes.orNotFound
+  }
 
   test("Responding to a request to upload a schema") {
     jsonSchemaValidationService().use { jsvs =>
@@ -86,7 +89,7 @@ class JsonSchemaValidationServiceSpec extends AsyncFunSuite with AsyncIOSpec wit
       for {
         response <- jsvs.run(Request(method = GET, uri = uri"/schema/thisSchemaDoesntExist"))
         _ = response.status shouldEqual NotFound
-        _ <- response.as[Json].asserting(_ shouldEqual json"""{"action": "downloadSchema", "id": "thisSchemaDoesntExist", "status": "error", "message": "Schema not found"}""")
+        _ <- response.as[Json].asserting(_ shouldEqual json"""{"action": "downloadSchema", "id": "thisSchemaDoesntExist", "status": "error", "message": "Schema [thisSchemaDoesntExist] doesn't exist"}""")
       } yield ()
     }
   }
