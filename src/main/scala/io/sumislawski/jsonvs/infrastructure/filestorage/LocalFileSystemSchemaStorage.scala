@@ -15,11 +15,11 @@ class LocalFileSystemSchemaStorage[F[_] : Sync : Files] private(semaphore: Semap
 
   override def getSchema(id: SchemaId): F[Schema] =
     semaphore.permit.use { _ =>
-      logger.info(s"Trying to read schema [$id].")
-      Files[F].readUtf8(storageDirectory / id.id) // TODO handle nonexistent file
-        .compile.foldMonoid
-        .map(Schema)
-        .adaptError { case t: NoSuchFileException => new SchemaNotFound(id) }
+      logger.debug(s"Trying to read schema [$id].") >>
+        Files[F].readUtf8(storageDirectory / id.id) // TODO handle nonexistent file
+          .compile.foldMonoid
+          .map(Schema)
+          .adaptError { case t: NoSuchFileException => new SchemaNotFound(id) }
     }
 
   override def createSchema(id: SchemaId, schema: Schema): F[Unit] =
@@ -32,6 +32,7 @@ class LocalFileSystemSchemaStorage[F[_] : Sync : Files] private(semaphore: Semap
 
   private def writeSchemaToFile(id: SchemaId, schema: Schema): F[Unit] =
     makeSureStorageDirectoryExists() >>
+      logger.debug(s"Writing schema [$id].") >>
       fs2.Stream(schema.toString())
         .through(fs2.text.utf8.encode)
         .through(Files[F].writeAll(storageDirectory / id.id))

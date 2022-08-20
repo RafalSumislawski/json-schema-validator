@@ -9,24 +9,30 @@ import com.github.fge.jsonschema.main.{JsonSchema, JsonSchemaFactory}
 import io.circe.Printer
 import io.sumislawski.jsonvs.core.SchemaValidationService.{InvalidJsonDocument, InvalidSchema}
 import io.sumislawski.jsonvs.core.ValidationResult._
+import org.typelevel.log4cats.slf4j.Slf4jLogger
 
 import scala.jdk.CollectionConverters.IteratorHasAsScala
 
 // We might want to split it into two services (one for managing the known schemas, and one for running the validation) if it grows significantly
-class SchemaValidationService[F[_] : MonadThrow] private(storage: SchemaStorage[F],
+class SchemaValidationService[F[_] : Sync] private(storage: SchemaStorage[F],
                                                          jackson: ObjectMapper,
                                                          jsonSchemaFactory: JsonSchemaFactory,
                                                         ) {
 
-  def getSchema(id: SchemaId): F[Schema] =
-    storage.getSchema(id)
+  private val logger = Slf4jLogger.getLogger[F]
 
-  def createSchema(id: SchemaId, schema: Schema): F[Unit] = for {
+  def downloadSchema(id: SchemaId): F[Schema] =
+    logger.info(s"Downloading schema [$id].") >>
+      storage.getSchema(id)
+
+  def uploadSchema(id: SchemaId, schema: Schema): F[Unit] = for {
+    _ <- logger.info(s"Uploading schema [$id].")
     _ <- readSchema(schema).adaptError { t => new InvalidSchema(t) }
     _ <- storage.createSchema(id, schema)
   } yield ()
 
-  def validateJson(schemaId: SchemaId, document: Document): F[ValidationResult] = for {
+  def validateDocument(schemaId: SchemaId, document: Document): F[ValidationResult] = for {
+    _ <- logger.info(s"Validating document against schema [$schemaId].")
     schema <- storage.getSchema(schemaId)
     jsonSchema <- readSchema(schema).adaptError { t => new InvalidSchema(t) }
     cleanedDocument <- clean(document).adaptError { t => new InvalidJsonDocument(t) }
