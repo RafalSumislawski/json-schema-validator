@@ -53,7 +53,7 @@ class JsonSchemaValidationServiceSpec extends AsyncFunSuite with AsyncIOSpec wit
     jsonSchemaValidationService().use { jsvs =>
       val schemaName = "schemaName"
       for {
-        response1 <- jsvs.run(Request(method = POST, uri = uri"/schema" / schemaName).withEntity(TestData.configSchema))
+        _ <- jsvs.run(Request(method = POST, uri = uri"/schema" / schemaName).withEntity(TestData.configSchema))
         response2 <- jsvs.run(Request(method = POST, uri = uri"/schema" / schemaName).withEntity(TestData.configSchema))
         _ = response2.status shouldEqual Conflict
         expectedMessage = s"Schema [$schemaName] already exists."

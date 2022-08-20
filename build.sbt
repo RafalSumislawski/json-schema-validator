@@ -11,6 +11,7 @@ libraryDependencies ++= logging.all ++ cats.all ++ circe.all ++ http4s.all ++ sc
   Vector(fs2Io, jsonSchemaValidator)
 
 ThisBuild / tpolecatDefaultOptionsMode := DevMode
+ThisBuild / tpolecatExcludeOptions := Set(ScalacOptions.warnDeadCode)
 
 addCompilerPlugin("org.typelevel" %% "kind-projector" % "0.10.3")
 addCompilerPlugin("com.olegpy" %% "better-monadic-for" % "0.3.1")

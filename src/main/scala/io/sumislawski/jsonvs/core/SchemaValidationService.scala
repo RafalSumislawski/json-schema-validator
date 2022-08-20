@@ -15,9 +15,9 @@ import scala.jdk.CollectionConverters.IteratorHasAsScala
 
 // We might want to split it into two services (one for managing the known schemas, and one for running the validation) if it grows significantly
 class SchemaValidationService[F[_] : Sync] private(storage: SchemaStorage[F],
-                                                         jackson: ObjectMapper,
-                                                         jsonSchemaFactory: JsonSchemaFactory,
-                                                        ) {
+                                                   jackson: ObjectMapper,
+                                                   jsonSchemaFactory: JsonSchemaFactory,
+                                                  ) {
 
   private val logger = Slf4jLogger.getLogger[F]
 

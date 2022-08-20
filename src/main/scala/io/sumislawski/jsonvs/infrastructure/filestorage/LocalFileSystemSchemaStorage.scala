@@ -19,7 +19,7 @@ class LocalFileSystemSchemaStorage[F[_] : Sync : Files] private(semaphore: Semap
         Files[F].readUtf8(storageDirectory / id.id) // TODO handle nonexistent file
           .compile.foldMonoid
           .map(Schema)
-          .adaptError { case t: NoSuchFileException => new SchemaNotFound(id) }
+          .adaptError { case _: NoSuchFileException => new SchemaNotFound(id) }
     }
 
   override def createSchema(id: SchemaId, schema: Schema): F[Unit] =

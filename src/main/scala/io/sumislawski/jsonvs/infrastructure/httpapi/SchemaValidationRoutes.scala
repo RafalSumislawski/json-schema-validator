@@ -29,7 +29,7 @@ class SchemaValidationRoutes[F[_] : Async](service: SchemaValidationService[F]) 
       SchemaId(schemaId).liftTo[F].flatMap { id =>
         r.as[String]
           .flatMap(body => service.uploadSchema(id, Schema(body)))
-          .onError{ t => logger.error(t)(s"Failed to upload schema [$schemaId].") }
+          .onError { t => logger.error(t)(s"Failed to upload schema [$schemaId].") }
           .attempt
           .flatMap {
             case Right(_) => Created(StatusResponse("uploadSchema", id, Status.Success))
@@ -42,7 +42,7 @@ class SchemaValidationRoutes[F[_] : Async](service: SchemaValidationService[F]) 
     case GET -> Root / "schema" / schemaId =>
       SchemaId(schemaId).liftTo[F].flatMap { id =>
         service.downloadSchema(id)
-          .onError{ t => logger.error(t)(s"Failed to download schema [$schemaId].") }
+          .onError { t => logger.error(t)(s"Failed to download schema [$schemaId].") }
           .attempt
           .flatMap {
             case Right(schema) => Ok(schema.toString)
@@ -55,7 +55,7 @@ class SchemaValidationRoutes[F[_] : Async](service: SchemaValidationService[F]) 
       SchemaId(schemaId).liftTo[F].flatMap { id =>
         r.as[String]
           .flatMap { document => service.validateDocument(id, Document(document)) }
-          .onError{ t => logger.error(t)(s"Failed to validate JSON against schema [$schemaId].") }
+          .onError { t => logger.error(t)(s"Failed to validate JSON against schema [$schemaId].") }
           .attempt
           .flatMap {
             case Right(Valid) => Ok(StatusResponse("validateDocument", id, Status.Success))
