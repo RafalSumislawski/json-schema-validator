@@ -18,8 +18,7 @@ class LocalFileSystemSchemaStorage[F[_] : Sync : Files] private(semaphore: Semap
       logger.info(s"Trying to read schema [$id].")
       Files[F].readUtf8(storageDirectory / id.id) // TODO handle nonexistent file
         .compile.foldMonoid
-        .flatMap(s => io.circe.parser.parse(s).liftTo[F])
-        .map(json => Schema(json))
+        .map(Schema)
         .adaptError { case t: NoSuchFileException => new SchemaNotFound(id) }
     }
 
@@ -33,7 +32,7 @@ class LocalFileSystemSchemaStorage[F[_] : Sync : Files] private(semaphore: Semap
 
   private def writeSchemaToFile(id: SchemaId, schema: Schema): F[Unit] =
     makeSureStorageDirectoryExists() >>
-      fs2.Stream(schema.json.toString())
+      fs2.Stream(schema.toString())
         .through(fs2.text.utf8.encode)
         .through(Files[F].writeAll(storageDirectory / id.id))
         .compile.drain

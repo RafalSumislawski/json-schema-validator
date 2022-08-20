@@ -5,8 +5,9 @@ import cats.effect.Sync
 import cats.syntax.all._
 import com.fasterxml.jackson.databind.{JsonNode, ObjectMapper}
 import com.github.fge.jsonschema.core.report.ProcessingReport
-import com.github.fge.jsonschema.main.JsonSchemaFactory
-import io.circe.{Json, Printer}
+import com.github.fge.jsonschema.main.{JsonSchema, JsonSchemaFactory}
+import io.circe.Printer
+import io.sumislawski.jsonvs.core.SchemaValidationService.{InvalidJsonDocument, InvalidSchema}
 import io.sumislawski.jsonvs.core.ValidationResult._
 
 import scala.jdk.CollectionConverters.IteratorHasAsScala
@@ -17,20 +18,34 @@ class SchemaValidationService[F[_] : MonadThrow] private(storage: SchemaStorage[
                                                          jsonSchemaFactory: JsonSchemaFactory,
                                                         ) {
 
-  def getSchema(id: SchemaId): F[Schema] = storage.getSchema(id)
+  def getSchema(id: SchemaId): F[Schema] =
+    storage.getSchema(id)
 
-  def createSchema(id: SchemaId, schema: Schema): F[Unit] = storage.createSchema(id, schema)
+  def createSchema(id: SchemaId, schema: Schema): F[Unit] = for {
+    _ <- readSchema(schema).adaptError { t => new InvalidSchema(t) }
+    _ <- storage.createSchema(id, schema)
+  } yield ()
 
-  def validateJson(schemaId: SchemaId, document: Json): F[ValidationResult] = for {
+  def validateJson(schemaId: SchemaId, document: Document): F[ValidationResult] = for {
     schema <- storage.getSchema(schemaId)
-    schemaAsJsonNode <- parseWithJackson(schema.json.toString())
-    jsonSchema <- MonadThrow[F].catchNonFatal(jsonSchemaFactory.getJsonSchema(schemaAsJsonNode))
-    documentAsJsonNode <- parseWithJackson(document.printWith(Printer.noSpaces.copy(dropNullValues = true)))
+    jsonSchema <- readSchema(schema).adaptError { t => new InvalidSchema(t) }
+    cleanedDocument <- clean(document).adaptError { t => new InvalidJsonDocument(t) }
+    documentAsJsonNode <- parseWithJackson(cleanedDocument.toString).adaptError { t => new InvalidJsonDocument(t) }
     validationReport <- MonadThrow[F].catchNonFatal(jsonSchema.validate(documentAsJsonNode))
   } yield toValidationResult(validationReport)
 
+  private def readSchema(schema: Schema): F[JsonSchema] = for {
+    schemaAsJsonNode <- parseWithJackson(schema.toString())
+    jsonSchema <- MonadThrow[F].catchNonFatal(jsonSchemaFactory.getJsonSchema(schemaAsJsonNode))
+  } yield jsonSchema
+
   private def parseWithJackson(s: String): F[JsonNode] =
     MonadThrow[F].catchNonFatal(jackson.readTree(s))
+
+  private def clean(document: Document): F[Document] =
+    io.circe.parser.parse(document.toString).liftTo[F]
+      .map(_.printWith(Printer.noSpaces.copy(dropNullValues = true)))
+      .map(Document)
 
   private def toValidationResult(report: ProcessingReport): ValidationResult =
     if (report.isSuccess) Valid
@@ -47,4 +62,8 @@ object SchemaValidationService {
     jackson <- Sync[F].delay(new ObjectMapper())
     jsonSchemaFactory <- Sync[F].delay(JsonSchemaFactory.byDefault())
   } yield new SchemaValidationService(storage, jackson, jsonSchemaFactory)
+
+  class InvalidSchema(cause: Throwable) extends Exception("Invalid JSON schema", cause)
+
+  class InvalidJsonDocument(cause: Throwable) extends Exception("Invalid JSON document", cause)
 }

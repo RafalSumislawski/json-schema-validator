@@ -1,7 +1,5 @@
 package io.sumislawski.jsonvs
 
-import io.circe.Json
-
 package object core {
 
   case class SchemaId private(id: String) extends AnyVal {
@@ -17,8 +15,12 @@ package object core {
 
   }
 
-  case class Schema(json: Json) {
-    override def toString: String = json.toString()
+  case class Schema(s: String) {
+    override def toString: String = s
+  }
+
+  case class Document(s: String) {
+    override def toString: String = s
   }
 
   sealed trait ValidationResult

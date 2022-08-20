@@ -67,7 +67,7 @@ class JsonSchemaValidationServiceSpec extends AsyncFunSuite with AsyncIOSpec wit
       for {
         response <- jsvs.run(Request(method = POST, uri = uri"/schema/config-schema"))
         _ = response.status shouldEqual BadRequest
-        _ <- response.as[Json].asserting(_ shouldEqual json"""{"action": "uploadSchema", "id": "config-schema", "status": "error", "message": "Invalid JSON"}""")
+        _ <- response.as[Json].asserting(_ shouldEqual json"""{"action": "uploadSchema", "id": "config-schema", "status": "error", "message": "Invalid JSON schema"}""")
       } yield ()
     }
   }
@@ -80,7 +80,8 @@ class JsonSchemaValidationServiceSpec extends AsyncFunSuite with AsyncIOSpec wit
         response2 <- jsvs.run(Request(method = GET, uri = uri"/schema" / schemaName))
         _ = response2.status shouldEqual Ok
         expectedSchema <- parse(TestData.configSchema).liftTo[IO]
-        _ <- response2.as[Json].asserting(_ shouldEqual expectedSchema)
+        actualSchema <- response2.as[Json]
+        _ = actualSchema shouldEqual expectedSchema
       } yield ()
     }
   }
