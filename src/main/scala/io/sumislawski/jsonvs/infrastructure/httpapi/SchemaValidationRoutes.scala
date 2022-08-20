@@ -4,6 +4,7 @@ import cats.effect.Async
 import cats.syntax.all._
 import io.circe.generic.semiauto._
 import io.circe.{Encoder, Printer}
+import io.sumislawski.jsonvs.core.SchemaId.IllegalSchemaId
 import io.sumislawski.jsonvs.core.SchemaStorage.{SchemaAlreadyExists, SchemaNotFound}
 import io.sumislawski.jsonvs.core.SchemaValidationService.{InvalidJsonDocument, InvalidSchema}
 import io.sumislawski.jsonvs.core.ValidationResult.{Invalid, Valid}
@@ -33,6 +34,7 @@ class SchemaValidationRoutes[F[_] : Async](service: SchemaValidationService[F]) 
           .attempt
           .flatMap {
             case Right(_) => Created(StatusResponse("uploadSchema", id, Status.Success))
+            case Left(t: IllegalSchemaId) => BadRequest(StatusResponse("uploadSchema", id, Status.Error, Some(t.getMessage)))
             case Left(t: InvalidSchema) => BadRequest(StatusResponse("uploadSchema", id, Status.Error, Some(t.getMessage)))
             case Left(t: SchemaAlreadyExists) => Conflict(StatusResponse("uploadSchema", id, Status.Error, Some(t.getMessage)))
             case Left(_) => InternalServerError(StatusResponse("uploadSchema", id, Status.Error, Some("Failed to process the request")))
@@ -46,6 +48,7 @@ class SchemaValidationRoutes[F[_] : Async](service: SchemaValidationService[F]) 
           .attempt
           .flatMap {
             case Right(schema) => Ok(schema.toString)
+            case Left(t: IllegalSchemaId) => BadRequest(StatusResponse("downloadSchema", id, Status.Error, Some(t.getMessage)))
             case Left(t: SchemaNotFound) => NotFound(StatusResponse("downloadSchema", id, Status.Error, Some(t.getMessage)))
             case Left(_) => InternalServerError(StatusResponse("downloadSchema", id, Status.Error, Some("Failed to process the request")))
           }
@@ -60,6 +63,7 @@ class SchemaValidationRoutes[F[_] : Async](service: SchemaValidationService[F]) 
           .flatMap {
             case Right(Valid) => Ok(StatusResponse("validateDocument", id, Status.Success))
             case Right(Invalid(message)) => UnprocessableEntity(StatusResponse("validateDocument", id, Status.Error, Some(message)))
+            case Left(t: IllegalSchemaId) => BadRequest(StatusResponse("validateDocument", id, Status.Error, Some(t.getMessage)))
             case Left(t: InvalidSchema) => UnprocessableEntity(StatusResponse("validateDocument", id, Status.Error, Some(t.getMessage)))
             case Left(t: InvalidJsonDocument) => UnprocessableEntity(StatusResponse("validateDocument", id, Status.Error, Some(t.getMessage)))
             case Left(t: SchemaNotFound) => NotFound(StatusResponse("validateDocument", id, Status.Error, Some(t.getMessage)))

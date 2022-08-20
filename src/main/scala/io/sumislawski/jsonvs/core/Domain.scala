@@ -7,9 +7,11 @@ case class SchemaId private(id: String) extends AnyVal {
 object SchemaId {
   private val regex = raw"[a-zA-Z_0-9\-]+".r
 
-  def apply(s: String): Either[IllegalArgumentException, SchemaId] =
+  def apply(s: String): Either[IllegalSchemaId, SchemaId] =
     if (regex.matches(s)) Right(new SchemaId(s))
-    else Left(new IllegalArgumentException(s"SchemaId [$s] contains illegal characters."))
+    else Left(new IllegalSchemaId(s))
+
+  class IllegalSchemaId(s: String) extends Exception(s"SchemaId [$s] contains illegal characters.")
 
 }
 
