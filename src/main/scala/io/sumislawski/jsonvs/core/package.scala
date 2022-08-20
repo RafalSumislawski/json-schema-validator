@@ -21,4 +21,12 @@ package object core {
     override def toString: String = json.toString()
   }
 
+  sealed trait ValidationResult
+
+  object ValidationResult {
+    case object Valid extends ValidationResult
+
+    case class Invalid(message: String) extends ValidationResult
+  }
+
 }

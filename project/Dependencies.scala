@@ -38,6 +38,8 @@ object Dependencies{
 
   val fs2Io = "co.fs2" %% "fs2-io" % "3.2.12"
 
+  val jsonSchemaValidator = "com.github.java-json-tools" % "json-schema-validator" % "2.2.14"
+
   object scalaTest {
     val scalaTest = "org.scalatest" %% "scalatest" % "3.2.10"
     val catsEffectTestingScalaTest = "org.typelevel" %% "cats-effect-testing-scalatest" % "1.4.0"

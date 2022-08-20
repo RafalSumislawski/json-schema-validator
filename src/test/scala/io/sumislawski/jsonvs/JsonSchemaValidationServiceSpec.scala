@@ -22,8 +22,9 @@ class JsonSchemaValidationServiceSpec extends AsyncFunSuite with AsyncIOSpec wit
   private def jsonSchemaValidationService(): Resource[IO, HttpApp[IO]] = for {
     storageDirectory <- Files[IO].tempDirectory
     storage <- Resource.eval(LocalFileSystemSchemaStorage[IO](storageDirectory))
+    service <- Resource.eval(SchemaValidationService(storage))
   } yield {
-    new SchemaValidationRoutes[IO](new SchemaValidationService(storage))
+    new SchemaValidationRoutes[IO](service)
       .routes.orNotFound
   }
 
@@ -97,6 +98,7 @@ class JsonSchemaValidationServiceSpec extends AsyncFunSuite with AsyncIOSpec wit
   test("Validating a valid JSON") {
     jsonSchemaValidationService().use { jsvs =>
       for {
+        _ <- jsvs.run(Request(method = POST, uri = uri"/schema/config-schema").withEntity(TestData.configSchema))
         response <- jsvs.run(Request(method = POST, uri = uri"/validate/config-schema").withEntity(TestData.validConfig))
         _ = response.status shouldEqual Ok
         _ <- response.as[Json].asserting(_ shouldEqual json"""{"action": "validateDocument", "id": "config-schema", "status": "success"}""")
@@ -107,9 +109,10 @@ class JsonSchemaValidationServiceSpec extends AsyncFunSuite with AsyncIOSpec wit
   test("Validating an invalid JSON") {
     jsonSchemaValidationService().use { jsvs =>
       for {
+        _ <- jsvs.run(Request(method = POST, uri = uri"/schema/config-schema").withEntity(TestData.configSchema))
         response <- jsvs.run(Request(method = POST, uri = uri"/validate/config-schema").withEntity(TestData.invalidConfig))
         _ = response.status shouldEqual UnprocessableEntity // The response code for this case was not specified in the requirements
-        _ <- response.as[Json].asserting(_ shouldEqual json"""{"action": "validateDocument", "id": "config-schema", "status": "error", "message": "Property '/root/timeout' is required"}""") // TODO adjust the message
+        _ <- response.as[Json].asserting(_ shouldEqual json"""{"action": "validateDocument", "id": "config-schema", "status": "error", "message": "object has missing required properties ([\"destination\"])"}""")
       } yield ()
     }
   }
@@ -117,9 +120,9 @@ class JsonSchemaValidationServiceSpec extends AsyncFunSuite with AsyncIOSpec wit
   test("Attempting to validate against a nonexistent schema") {
     jsonSchemaValidationService().use { jsvs =>
       for {
-        response <- jsvs.run(Request(method = POST, uri = uri"/validate/config-schema").withEntity(TestData.validConfig))
+        response <- jsvs.run(Request(method = POST, uri = uri"/validate/thisSchemaDoesntExist").withEntity(TestData.validConfig))
         _ = response.status shouldEqual NotFound
-        _ <- response.as[Json].asserting(_ shouldEqual json"""{"action": "validateDocument", "id": "config-schema", "status": "error", "message": "Schema [thisSchemaDoesntExist] doesn't exist"}""")
+        _ <- response.as[Json].asserting(_ shouldEqual json"""{"action": "validateDocument", "id": "thisSchemaDoesntExist", "status": "error", "message": "Schema [thisSchemaDoesntExist] doesn't exist"}""")
       } yield ()
     }
   }

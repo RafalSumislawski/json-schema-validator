@@ -3,9 +3,9 @@ package io.sumislawski.jsonvs.infrastructure.httpapi
 import cats.effect.Async
 import cats.syntax.all._
 import io.circe.generic.semiauto._
-import io.circe.literal._
 import io.circe.{Encoder, Json, Printer}
 import io.sumislawski.jsonvs.core.SchemaStorage.{SchemaAlreadyExists, SchemaNotFound}
+import io.sumislawski.jsonvs.core.ValidationResult.{Invalid, Valid}
 import io.sumislawski.jsonvs.core.{Schema, SchemaId, SchemaValidationService}
 import io.sumislawski.jsonvs.infrastructure.httpapi.SchemaValidationRoutes.{Status, StatusResponse}
 import org.http4s.dsl.Http4sDsl
@@ -48,10 +48,18 @@ class SchemaValidationRoutes[F[_] : Async](service: SchemaValidationService[F]) 
 
     case r@POST -> Root / "validate" / schemaId =>
       SchemaId(schemaId).liftTo[F].flatMap { id =>
-        Ok(json"""{"action": "validateDocument", "id": "config-schema", "status": "success"}""")
+        r.as[Json]
+          .flatMap { document => service.validateJson(id, document) }
+          .attempt
+          .flatMap {
+            case Right(Valid) => Ok(StatusResponse("validateDocument", id, Status.Success))
+            case Right(Invalid(message)) => UnprocessableEntity(StatusResponse("validateDocument", id, Status.Error, Some(message)))
+            case Left(_: MalformedMessageBodyFailure) => UnprocessableEntity(StatusResponse("validateDocument", id, Status.Error, Some("Invalid JSON")))
+            case Left(t: SchemaNotFound) => NotFound(StatusResponse("validateDocument", id, Status.Error, Some(t.getMessage)))
+            case Left(t) => InternalServerError(StatusResponse("validateDocument", id, Status.Error, Some("Failed to process the request"))) // TODO log
+          }
       }
   }
-
 }
 
 object SchemaValidationRoutes {
