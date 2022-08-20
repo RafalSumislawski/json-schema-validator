@@ -35,4 +35,28 @@ object TestData {
       "required": ["source", "destination"]
     }"""
 
+  val validConfig =
+    """
+    {
+      "source": "/home/alice/image.iso",
+      "destination": "/mnt/storage",
+      "timeout": null,
+      "chunks": {
+        "size": 1024,
+        "number": null
+      }
+    }"""
+
+  val invalidConfig =
+    """
+    {
+      "source": "/home/alice/image.iso",
+      "destination": null,
+      "timeout": null,
+      "chunks": {
+        "size": 1024,
+        "number": null
+      }
+    }"""
+
 }

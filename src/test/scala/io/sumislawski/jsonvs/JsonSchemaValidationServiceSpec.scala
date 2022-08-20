@@ -93,4 +93,34 @@ class JsonSchemaValidationServiceSpec extends AsyncFunSuite with AsyncIOSpec wit
       } yield ()
     }
   }
+
+  test("Validating a valid JSON") {
+    jsonSchemaValidationService().use { jsvs =>
+      for {
+        response <- jsvs.run(Request(method = POST, uri = uri"/validate/config-schema").withEntity(TestData.validConfig))
+        _ = response.status shouldEqual Ok
+        _ <- response.as[Json].asserting(_ shouldEqual json"""{"action": "validateDocument", "id": "config-schema", "status": "success"}""")
+      } yield ()
+    }
+  }
+
+  test("Validating an invalid JSON") {
+    jsonSchemaValidationService().use { jsvs =>
+      for {
+        response <- jsvs.run(Request(method = POST, uri = uri"/validate/config-schema").withEntity(TestData.invalidConfig))
+        _ = response.status shouldEqual UnprocessableEntity // The response code for this case was not specified in the requirements
+        _ <- response.as[Json].asserting(_ shouldEqual json"""{"action": "validateDocument", "id": "config-schema", "status": "error", "message": "Property '/root/timeout' is required"}""") // TODO adjust the message
+      } yield ()
+    }
+  }
+
+  test("Attempting to validate against a nonexistent schema") {
+    jsonSchemaValidationService().use { jsvs =>
+      for {
+        response <- jsvs.run(Request(method = POST, uri = uri"/validate/config-schema").withEntity(TestData.validConfig))
+        _ = response.status shouldEqual NotFound
+        _ <- response.as[Json].asserting(_ shouldEqual json"""{"action": "validateDocument", "id": "config-schema", "status": "error", "message": "Schema [thisSchemaDoesntExist] doesn't exist"}""")
+      } yield ()
+    }
+  }
 }
