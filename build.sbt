@@ -13,5 +13,5 @@ libraryDependencies ++= logging.all ++ cats.all ++ circe.all ++ http4s.all ++ sc
 ThisBuild / tpolecatDefaultOptionsMode := DevMode
 ThisBuild / tpolecatExcludeOptions := Set(ScalacOptions.warnDeadCode)
 
-addCompilerPlugin("org.typelevel" %% "kind-projector" % "0.10.3")
+addCompilerPlugin("org.typelevel" % "kind-projector" % "0.13.2" cross CrossVersion.full)
 addCompilerPlugin("com.olegpy" %% "better-monadic-for" % "0.3.1")
