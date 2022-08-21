@@ -13,13 +13,13 @@ import org.typelevel.log4cats.slf4j.Slf4jLogger
 import java.net.InetSocketAddress
 import scala.util.control.NonFatal
 
-class HttpServer[F[_] : Async] private(routes: HttpRoutes[F]) extends Http4sDsl[F] {
+class HttpServer[F[_] : Async] private(routes: HttpRoutes[F], bindAddress: InetSocketAddress) extends Http4sDsl[F] {
 
   private val logger = Slf4jLogger.getLogger[F]
 
   private def resource: Resource[F, Unit] =
     BlazeServerBuilder[F]
-      .bindSocketAddress(new InetSocketAddress(8080)) // TODO make the port configurable. 80 won't work out-f-the-box on UNIX
+      .bindSocketAddress(bindAddress)
       .withServiceErrorHandler(errorHandler)
       .withHttpApp(orNotFound(routes))
       .resource
@@ -45,6 +45,6 @@ class HttpServer[F[_] : Async] private(routes: HttpRoutes[F]) extends Http4sDsl[
 }
 
 object HttpServer {
-  def apply[F[_] : Async](routes: HttpRoutes[F]): Resource[F, Unit] =
-    new HttpServer[F](routes).resource
+  def apply[F[_] : Async](routes: HttpRoutes[F], bindAddress: InetSocketAddress): Resource[F, Unit] =
+    new HttpServer[F](routes, bindAddress).resource
 }
