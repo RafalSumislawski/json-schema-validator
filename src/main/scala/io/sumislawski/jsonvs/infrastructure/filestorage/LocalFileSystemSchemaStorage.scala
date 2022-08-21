@@ -16,7 +16,7 @@ class LocalFileSystemSchemaStorage[F[_] : Sync : Files] private(semaphore: Semap
   override def getSchema(id: SchemaId): F[Schema] =
     semaphore.permit.use { _ =>
       logger.debug(s"Trying to read schema [$id].") >>
-        Files[F].readUtf8(storageDirectory / id.id) // TODO handle nonexistent file
+        Files[F].readUtf8(storageDirectory / id.id)
           .compile.foldMonoid
           .map(Schema)
           .adaptError { case _: NoSuchFileException => new SchemaNotFound(id) }

@@ -127,3 +127,4 @@ rebel.xml
 /project/project/target
 /project/target
 *.sc
+schemaStorage/
